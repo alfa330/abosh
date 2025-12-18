@@ -183,7 +183,7 @@ html,body{height:100%;margin:0;font-family:-apple-system,BlinkMacSystemFont,"Seg
   </div>
 
 <script>
-// ====== ГЛОБАЛНЫЕ ПЕРЕМЕННЫЕ ======
+// ====== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ======
 let mode = 'single';
 let currentQuestions = [];
 let order = [];
@@ -297,87 +297,76 @@ async function loadQuestionsFromFile() {
   }
 }
 
-/*
-  Новый парсер: читает блоки, начинающиеся с "номер. " (например "117. ..."),
-  затем внутри блока ищет строки-опции формата:
-    [ ] Текст варианта
-    [x] Правильный вариант    (поддерживаются латинский x/X и русская х/Х)
-  Всё, что до первой опции — считается текстом вопроса (поддерживается многострочный вопрос).
-  Если в блоке нет опций — блок игнорируется.
-*/
+/* ВСТАВЛЁН ВАШ ПАРСЕР */
 function parseQuestions(text) {
   if (!text) return createFallbackQuestions();
   // Нормализуем переносы строк
   const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-  const questionBlocks = [];
-  // Регекс: находит блок начиная с "число." до следующего "число." или конца текста
+  // Разбиваем на блоки: каждый блок начинается с "число." и продолжается до следующего "число." или до конца
   const blockRegex = /^(\d+\.\s[\s\S]*?)(?=^\d+\.|\s*$)/gim;
+  const questionBlocks = [];
   let m;
   while ((m = blockRegex.exec(normalized)) !== null) {
     questionBlocks.push(m[1].trim());
   }
 
   const questions = [];
+
+  // Шаблон для поиска первой опции в блоке (любой строкой, начинающейся с [ ... ])
+  const firstOptionLocator = /(^|\n)\s*\[\s*[xXхХ]?\s*\]/m;
+  const optionLinePattern = /^\s*\[\s*([xXхХ]?)\s*\]\s*(.*)$/;
+
   for (let i = 0; i < questionBlocks.length; i++) {
     const block = questionBlocks[i];
-    const lines = block.split('\n').map(l => l.replace(/\u00A0/g, ' ').trim());
-    if (lines.length === 0) continue;
 
-    // Первый шаг — собрать опции и найти индекс первой опции
-    const optionPattern = /^\[\s*([xXхХ]?)\s*\]\s*(.*)$/; // захватывает метку (x или х) и текст варианта
+    // Найдём позицию первой опции в блоке (если нет — пропустим блок)
+    const optLoc = firstOptionLocator.exec(block);
+    if (!optLoc) continue;
+
+    // Позиция начала первой опции относительно блока
+    const optPos = optLoc.index + (optLoc[1] ? optLoc[1].length : 0);
+
+    // Вопрос — всё от начала блока до этой позиции (удаляем префикс "NNN. ")
+    const rawQuestion = block.substring(0, optPos).replace(/^\s*\d+\.\s*/, '').trim();
+
+    // Остальное — строки с вариантами (и возможными шумными строками)
+    const optionsText = block.substring(optPos).trim();
+    const optionLines = optionsText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
     const options = [];
-    const correctFlags = [];
-    let firstOptionIndex = -1;
-    for (let li = 0; li < lines.length; li++) {
-      const line = lines[li];
-      const optMatch = line.match(optionPattern);
-      if (optMatch) {
-        if (firstOptionIndex === -1) firstOptionIndex = li;
-        const mark = optMatch[1];
-        const txt = optMatch[2].trim();
-        options.push(txt);
-        correctFlags.push( /[xXхХ]/.test(mark) );
-      }
-    }
-
-    if (options.length === 0) continue; // блок без опций — пропускаем
-
-    // Вопрос — это всё, что идёт до первой опции (или первый элемент строк, обрезанный номера)
-    let questionLines = [];
-    if (firstOptionIndex > 0) {
-      questionLines = lines.slice(0, firstOptionIndex);
-    } else {
-      // если опция сразу на следующей строке, всё равно берем первые строки кроме опций
-      questionLines = lines.filter((ln, idx) => !ln.match(optionPattern)).slice(0, 1);
-    }
-
-    // Собираем текст вопроса и удаляем префикс "117. "
-    const rawQuestion = questionLines.join(' ').replace(/^\d+\.\s*/, '').trim();
-
-    // correctAnswers — индексы вариантов в исходном порядке (0-based)
     const correctAnswers = [];
-    for (let k = 0; k < correctFlags.length; k++) {
-      if (correctFlags[k]) correctAnswers.push(k);
-    }
+
+    optionLines.forEach(line => {
+      const om = line.match(optionLinePattern);
+      if (om) {
+        const mark = om[1];      // может быть 'x' / 'X' / 'х' / 'Х' или пусто
+        const txt = om[2].trim();
+        options.push(txt);
+        if (/[xXхХ]/.test(mark)) {
+          correctAnswers.push(options.length - 1); // индекс текущего варианта
+        }
+      }
+    });
+
+    if (options.length === 0) continue; // если опций нет — блок некорректен, пропускаем
+
+    const numMatch = block.match(/^\s*(\d+)\./);
+    const qnum = numMatch ? parseInt(numMatch[1], 10) : (questions.length + 1);
 
     questions.push({
-      question: rawQuestion || ('Вопрос ' + (questions.length + 1)),
-      questionNumber: (() => {
-        const numMatch = block.match(/^\s*(\d+)\./);
-        return numMatch ? parseInt(numMatch[1], 10) : (questions.length + 1);
-      })(),
+      question: rawQuestion || `Вопрос ${questions.length + 1}`,
+      questionNumber: qnum,
       options,
       correctAnswers,
       explanation: ''
     });
   }
 
-  if (questions.length === 0) {
-    return createFallbackQuestions();
-  }
-  return questions;
+  return questions.length ? questions : createFallbackQuestions();
 }
+/* /ВСТАВЛЁН ВАШ ПАРСЕР */
 
+// Фоллбек на случай проблем
 function createFallbackQuestions() {
   return [
     {
