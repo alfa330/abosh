@@ -1,0 +1,841 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Тестирование знаний</title>
+<style>
+:root{
+  --bg:#07101a; --panel: rgba(18,24,33,0.56);
+  --accent1:#45a8ff; --accent2:#2aa1ff; --muted:#98a0b3; --text:#e6eef8;
+  --danger1:#ff4757; --danger2:#ff3838;
+  --card-shadow: 0 12px 30px rgba(2,6,23,0.6);
+}
+.light{ --bg:#f5f7fb; --panel: rgba(255,255,255,0.92); --text:#081026; --muted:#52606d; --accent1:#2979ff; --accent2:#1e66d7; --danger1:#ff4757; --danger2:#ff3838; }
+
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial;color:var(--text);background:linear-gradient(180deg,var(--bg), #061018);-webkit-font-smoothing:antialiased}
+.container{max-width:1100px;margin:28px auto;padding:18px}
+.header{display:flex;align-items:center;justify-content:space-between;padding:12px;border-radius:14px;background:var(--panel);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.03);box-shadow:var(--card-shadow)}
+.title{font-weight:800;font-size:22px}
+.subtitle{color:var(--muted);font-size:13px}
+
+.card{margin-top:16px;padding:20px;border-radius:16px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.03);box-shadow:var(--card-shadow)}
+.progress-row{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.progress-small{font-size:13px;color:var(--muted);min-width:180px}
+.progress-track{flex:1;height:8px;background:rgba(255,255,255,0.03);border-radius:999px;overflow:hidden}
+.progress-bar{height:100%;width:0%;background:linear-gradient(90deg,var(--accent1),var(--accent2));transition:width .35s ease}
+.progress-pct{width:48px;text-align:right;color:var(--muted);font-size:13px}
+
+.question{font-size:20px;font-weight:700;margin-bottom:12px;color:var(--text)}
+.options{display:flex;flex-direction:column;gap:10px}
+.option{display:flex;align-items:center;gap:14px;padding:14px;border-radius:12px;background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.04);cursor:pointer;transition:transform .16s ease,box-shadow .16s, background .16s;user-select:none}
+.option:hover{transform:translateY(-6px);box-shadow:0 18px 40px rgba(2,6,23,0.55)}
+.option .opt-text{flex:1;font-size:15px;color:var(--text)}
+.option.selected{background:linear-gradient(90deg,var(--accent1),var(--accent2));color:#fff;border-color:transparent;box-shadow:0 12px 30px rgba(45,166,255,0.14)}
+.option.correct{background:linear-gradient(90deg,#2ecc71,#1fbf5b);color:#fff}
+.option.incorrect{background:linear-gradient(90deg,#ff6b6b,#ff4b4b);color:#fff}
+
+.meta{display:flex;align-items:center;justify-content:space-between;margin-top:12px}
+.feedback{padding:10px 12px;border-radius:10px;display:none;font-weight:700}
+.feedback.correct{background:rgba(46,204,113,0.12);color:#2ecc71}
+.feedback.incorrect{background:rgba(255,107,107,0.12);color:#ff6b6b}
+.explain{margin-left:12px;color:var(--muted);display:none}
+
+.nav{display:flex;align-items:center;gap:12px;justify-content:flex-end;margin-top:18px}
+.btn{padding:10px 16px;border-radius:12px;border:none;background:var(--accent1);color:white;font-weight:700;cursor:pointer}
+.btn.ghost{background:transparent;border:1px solid rgba(255,255,255,0.04);color:var(--text)}
+.btn.danger{background:linear-gradient(90deg,var(--danger1),var(--danger2));color:white;border:none}
+.btn.danger:hover{background:linear-gradient(90deg,#ff3838,#ff1e1e)}
+.btn:disabled{opacity:0.45;cursor:not-allowed}
+.auto-skip-toggle{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:14px;cursor:pointer}
+.auto-skip-toggle input{transform:scale(1.12)}
+
+.bottom-cell { margin-top:22px; display:none; }
+.bottom-cell.visible { display:block; }
+.bottom-cell .track {
+  width:100%; height:12px; border-radius:8px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.03); overflow:hidden; position:relative; box-shadow: 0 8px 20px rgba(2,6,23,0.45);
+}
+.bottom-cell .fill { height:100%; width:0%; background: linear-gradient(90deg,var(--accent1),var(--accent2)); transition: width .05s linear; border-radius:6px; box-shadow:0 6px 16px rgba(45,166,255,0.14); }
+.bottom-cell .label { margin-top:8px; text-align:right; color:var(--muted); font-size:13px; }
+
+.results{padding:22px;text-align:center;color:var(--text);display:none}
+.score{font-size:36px;font-weight:800;margin-bottom:8px}
+.result-details{margin:20px 0;padding:15px;background:rgba(255,255,255,0.02);border-radius:10px;}
+.result-details div{margin:5px 0;}
+
+.start-modal{position:fixed;inset:0;background:linear-gradient(rgba(3,6,10,0.6), rgba(3,6,10,0.6));display:flex;align-items:center;justify-content:center;z-index:2000}
+.start-card{background:var(--panel);padding:22px;border-radius:14px;border:1px solid rgba(255,255,255,0.04);width:360px;box-shadow:var(--card-shadow);text-align:center}
+.mode-btn{width:100%;padding:12px;border-radius:10px;border:none;margin-bottom:10px;font-weight:700;cursor:pointer}
+.mode-single{background:linear-gradient(90deg,var(--accent1),var(--accent2));color:white}
+.mode-mastery{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--text)}
+.mode-btn:hover{transform:translateY(-2px);transition:transform 0.2s}
+
+.confirm-modal{position:fixed;inset:0;background:linear-gradient(rgba(3,6,10,0.8), rgba(3,6,10,0.8));display:flex;align-items:center;justify-content:center;z-index:3000;display:none}
+.confirm-card{background:var(--panel);padding:22px;border-radius:14px;border:1px solid rgba(255,255,255,0.04);width:360px;box-shadow:var(--card-shadow);text-align:center}
+.confirm-buttons{display:flex;gap:10px;margin-top:20px}
+.confirm-buttons button{flex:1}
+
+@media(max-width:560px){ .bottom-cell .label{display:none} .bottom-cell .track{height:10px} }
+</style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div>
+        <div class="title" id="testTitle">Тестирование знаний</div>
+        <div class="subtitle" id="testSubtitle">Выберите режим тестирования</div>
+      </div>
+      <div>
+        <button id="themeBtn" style="background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--text);padding:6px 10px;border-radius:999px;cursor:pointer">Тема</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="progress-row">
+        <div class="progress-small" id="psmall">Вопрос 1 из N</div>
+        <div class="progress-track"><div id="progressBar" class="progress-bar"></div></div>
+        <div class="progress-pct" id="ppct">0%</div>
+      </div>
+
+      <div>
+        <div class="question" id="qtext">Загрузка...</div>
+        <div class="options" id="options"></div>
+
+        <div class="meta">
+          <div id="feedback" class="feedback"></div>
+          <div id="explain" class="explain"></div>
+        </div>
+      </div>
+
+      <div class="nav">
+        <button id="prevBtn" class="btn ghost">Назад</button>
+        
+        <button id="finishBtn" class="btn danger" style="display:none">Завершить тест</button>
+
+        <label class="auto-skip-toggle" title="Если включено — после ответа появится нижний бар и заполнится автоматически">
+          <input type="checkbox" id="autoSkip" />
+          <span>Автопропуск</span>
+        </label>
+
+        <button id="actionBtn" class="btn">Следующий</button>
+      </div>
+
+      <div class="bottom-cell" id="bottomCell" aria-hidden="true">
+        <div class="track"><div class="fill" id="bottomFill"></div></div>
+        <div class="label" id="bottomLabel">0%</div>
+      </div>
+
+      <div id="results" class="results">
+        <h2>Тест завершён</h2>
+        <div class="score" id="finalScore">0/0</div>
+        <div id="resultMessage"></div>
+        
+        <div class="result-details">
+          <div>Правильных ответов: <span id="correctAnswers">0</span></div>
+          <div>Неправильных ответов: <span id="wrongAnswers">0</span></div>
+          <div>Процент правильных ответов: <span id="percentage">0%</span></div>
+          <div>Пройдено вопросов: <span id="totalAnswered">0</span></div>
+        </div>
+        
+        <div style="margin-top:14px">
+          <button id="restartBtn" class="btn">Пройти снова</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="confirm-modal" id="confirmModal">
+    <div class="confirm-card">
+      <h3>Завершить тест?</h3>
+      <p>Вы уверены, что хотите завершить тест досрочно? Все ответы будут сохранены.</p>
+      <div class="confirm-buttons">
+        <button id="confirmCancelBtn" class="btn ghost">Отмена</button>
+        <button id="confirmFinishBtn" class="btn danger">Завершить</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="start-modal" id="startModal">
+    <div class="start-card">
+      <h2>Выберите режим тестирования</h2>
+      <p style="color:var(--muted);margin-bottom:20px;">Вопросы загружаются из файла questions.txt</p>
+      <button id="singleBtn" class="mode-btn mode-single">Пройти один раз</button>
+      <button id="masteryBtn" class="mode-btn mode-mastery">Mastery — повторять неверные</button>
+      <div style="margin-top:20px;padding-top:20px;border-top:1px solid rgba(255,255,255,0.06);text-align:left;">
+        <p style="font-size:13px;color:var(--muted);margin:0 0 6px 0;">Формат файла <strong>questions.txt</strong> должен быть такой (пример):</p>
+        <pre style="font-size:13px;color:var(--muted);background:rgba(0,0,0,0.06);padding:8px;border-radius:6px;">117. У пациента после ножевого ранения задней области голени наблюдается...  
+[ ] Запирательный нерв  
+[ ] Седалищный нерв  
+[x] Икроножный нерв  
+[ ] Подкожный нерв  
+[ ] Большеберцовый нерв
+
+118. В результате повреждения какого нерва...  
+[ ] Подкожного  
+[ ] Большеберцового  
+[ ] Бедренного  
+[x] Седалищного  
+[ ] Запирательного</pre>
+        <p style="font-size:12px;color:var(--muted);margin-top:8px;">Вариант считается правильным если внутри квадратных скобок стоит <code>x</code> или русская <code>х</code>. Поддерживаются несколько правильных ответов (несколько пометок [x]).</p>
+      </div>
+    </div>
+  </div>
+
+<script>
+// ====== ГЛОБАЛНЫЕ ПЕРЕМЕННЫЕ ======
+let mode = 'single';
+let currentQuestions = [];
+let order = [];
+let currentIndex = 0;
+let score = 0;
+let answered = false;
+let userSelections = {};
+let totalQuestionsInTest = 0;
+let questionsAnswered = 0;
+
+let bottomAnim = null;
+let bottomStart = null;
+let bottomDuration = 0;
+let bottomActive = false;
+
+// ====== СОХРАНЕНИЕ СОСТОЯНИЯ В LOCALSTORAGE ======
+function saveState() {
+  const state = {
+    mode,
+    order,
+    currentIndex,
+    score,
+    answered,
+    userSelections,
+    totalQuestionsInTest,
+    questionsAnswered
+  };
+  localStorage.setItem('testState', JSON.stringify(state));
+}
+
+function loadState() {
+  const saved = localStorage.getItem('testState');
+  if (saved) {
+    try {
+      return JSON.parse(saved);
+    } catch (e) {
+      console.error('Ошибка загрузки состояния:', e);
+      return null;
+    }
+  }
+  return null;
+}
+
+function clearState() {
+  localStorage.removeItem('testState');
+}
+
+// ====== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ======
+function shuffleInPlace(a){ 
+  for(let i = a.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  } 
+  return a; 
+}
+
+function shuffled(a){ 
+  return shuffleInPlace(a.slice()); 
+}
+
+function isMulti(q){ 
+  return Array.isArray(q.correctAnswers) && q.correctAnswers.length > 1; 
+}
+
+// ====== ЭЛЕМЕНТЫ DOM ======
+const qtext = document.getElementById('qtext');
+const optionsEl = document.getElementById('options');
+const prevBtn = document.getElementById('prevBtn');
+const actionBtn = document.getElementById('actionBtn');
+const finishBtn = document.getElementById('finishBtn');
+const progressBar = document.getElementById('progressBar');
+const psmall = document.getElementById('psmall');
+const ppct = document.getElementById('ppct');
+const feedbackEl = document.getElementById('feedback');
+const explainEl = document.getElementById('explain');
+const resultsEl = document.getElementById('results');
+const finalScore = document.getElementById('finalScore');
+const resultMessage = document.getElementById('resultMessage');
+const correctAnswersEl = document.getElementById('correctAnswers');
+const wrongAnswersEl = document.getElementById('wrongAnswers');
+const percentageEl = document.getElementById('percentage');
+const totalAnsweredEl = document.getElementById('totalAnswered');
+const startModal = document.getElementById('startModal');
+const singleBtn = document.getElementById('singleBtn');
+const masteryBtn = document.getElementById('masteryBtn');
+const autoSkipEl = document.getElementById('autoSkip');
+const bottomCell = document.getElementById('bottomCell');
+const bottomFill = document.getElementById('bottomFill');
+const bottomLabel = document.getElementById('bottomLabel');
+const restartBtn = document.getElementById('restartBtn');
+const themeBtn = document.getElementById('themeBtn');
+const testTitle = document.getElementById('testTitle');
+const testSubtitle = document.getElementById('testSubtitle');
+const confirmModal = document.getElementById('confirmModal');
+const confirmCancelBtn = document.getElementById('confirmCancelBtn');
+const confirmFinishBtn = document.getElementById('confirmFinishBtn');
+
+// ====== ЗАГРУЗКА ВОПРОСОВ ИЗ ФАЙЛА ======
+async function loadQuestionsFromFile() {
+  try {
+    const response = await fetch('questions.txt');
+    if (!response.ok) {
+      throw new Error('Не удалось загрузить файл questions.txt');
+    }
+    const text = await response.text();
+    return parseQuestions(text);
+  } catch (error) {
+    console.error('Ошибка загрузки вопросов:', error);
+    alert('Не удалось загрузить вопросы из файла questions.txt. Проверьте наличие файла и формат.');
+    return createFallbackQuestions();
+  }
+}
+
+/*
+  Новый парсер: читает блоки, начинающиеся с "номер. " (например "117. ..."),
+  затем внутри блока ищет строки-опции формата:
+    [ ] Текст варианта
+    [x] Правильный вариант    (поддерживаются латинский x/X и русская х/Х)
+  Всё, что до первой опции — считается текстом вопроса (поддерживается многострочный вопрос).
+  Если в блоке нет опций — блок игнорируется.
+*/
+function parseQuestions(text) {
+  if (!text) return createFallbackQuestions();
+  // Нормализуем переносы строк
+  const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const questionBlocks = [];
+  // Регекс: находит блок начиная с "число." до следующего "число." или конца текста
+  const blockRegex = /^(\d+\.\s[\s\S]*?)(?=^\d+\.|\s*$)/gim;
+  let m;
+  while ((m = blockRegex.exec(normalized)) !== null) {
+    questionBlocks.push(m[1].trim());
+  }
+
+  const questions = [];
+  for (let i = 0; i < questionBlocks.length; i++) {
+    const block = questionBlocks[i];
+    const lines = block.split('\n').map(l => l.replace(/\u00A0/g, ' ').trim());
+    if (lines.length === 0) continue;
+
+    // Первый шаг — собрать опции и найти индекс первой опции
+    const optionPattern = /^\[\s*([xXхХ]?)\s*\]\s*(.*)$/; // захватывает метку (x или х) и текст варианта
+    const options = [];
+    const correctFlags = [];
+    let firstOptionIndex = -1;
+    for (let li = 0; li < lines.length; li++) {
+      const line = lines[li];
+      const optMatch = line.match(optionPattern);
+      if (optMatch) {
+        if (firstOptionIndex === -1) firstOptionIndex = li;
+        const mark = optMatch[1];
+        const txt = optMatch[2].trim();
+        options.push(txt);
+        correctFlags.push( /[xXхХ]/.test(mark) );
+      }
+    }
+
+    if (options.length === 0) continue; // блок без опций — пропускаем
+
+    // Вопрос — это всё, что идёт до первой опции (или первый элемент строк, обрезанный номера)
+    let questionLines = [];
+    if (firstOptionIndex > 0) {
+      questionLines = lines.slice(0, firstOptionIndex);
+    } else {
+      // если опция сразу на следующей строке, всё равно берем первые строки кроме опций
+      questionLines = lines.filter((ln, idx) => !ln.match(optionPattern)).slice(0, 1);
+    }
+
+    // Собираем текст вопроса и удаляем префикс "117. "
+    const rawQuestion = questionLines.join(' ').replace(/^\d+\.\s*/, '').trim();
+
+    // correctAnswers — индексы вариантов в исходном порядке (0-based)
+    const correctAnswers = [];
+    for (let k = 0; k < correctFlags.length; k++) {
+      if (correctFlags[k]) correctAnswers.push(k);
+    }
+
+    questions.push({
+      question: rawQuestion || ('Вопрос ' + (questions.length + 1)),
+      questionNumber: (() => {
+        const numMatch = block.match(/^\s*(\d+)\./);
+        return numMatch ? parseInt(numMatch[1], 10) : (questions.length + 1);
+      })(),
+      options,
+      correctAnswers,
+      explanation: ''
+    });
+  }
+
+  if (questions.length === 0) {
+    return createFallbackQuestions();
+  }
+  return questions;
+}
+
+function createFallbackQuestions() {
+  return [
+    {
+      question: "Что такое JavaScript?",
+      questionNumber: 1,
+      options: [
+        "Язык программирования для веб-разработки",
+        "База данных",
+        "Графический редактор",
+        "Операционная система"
+      ],
+      correctAnswers: [0],
+      explanation: "JavaScript - это язык программирования, используемый для создания интерактивных веб-страниц."
+    },
+    {
+      question: "Что такое HTML?",
+      questionNumber: 2,
+      options: [
+        "Язык разметки гипертекста",
+        "Язык программирования",
+        "Система управления базами данных",
+        "Фреймворк для CSS"
+      ],
+      correctAnswers: [0],
+      explanation: "HTML (HyperText Markup Language) - стандартный язык разметки документов для веб-страниц."
+    }
+  ];
+}
+
+// ====== НИЖНИЙ ПРОГРЕСС-БАР ======
+function startBottomFill(ms){
+  if (!autoSkipEl || !autoSkipEl.checked) return;
+  if (bottomActive) return;
+  
+  bottomActive = true;
+  bottomDuration = ms;
+  bottomStart = null;
+  bottomFill.style.width = '0%';
+  bottomLabel.textContent = '0%';
+  bottomCell.style.display = 'block';
+  bottomCell.classList.add('visible');
+
+  function step(ts){
+    if (!bottomStart) bottomStart = ts;
+    const elapsed = ts - bottomStart;
+    const pct = Math.min(1, elapsed / bottomDuration);
+    const pctInt = Math.round(pct * 100);
+    bottomFill.style.width = pctInt + '%';
+    bottomLabel.textContent = pctInt + '%';
+    
+    if (pct < 1){
+      bottomAnim = requestAnimationFrame(step);
+    } else {
+      bottomAnim = null;
+      bottomActive = false;
+      if (autoSkipEl && autoSkipEl.checked){
+        proceedToNext(true);
+      }
+    }
+  }
+  
+  bottomAnim = requestAnimationFrame(step);
+}
+
+function stopBottomFill(){
+  if (bottomAnim){ 
+    cancelAnimationFrame(bottomAnim); 
+    bottomAnim = null; 
+  }
+  bottomStart = null;
+  bottomDuration = 0;
+  bottomActive = false;
+  bottomCell.classList.remove('visible');
+  
+  clearTimeout(bottomCell._hideTimeout);
+  bottomCell._hideTimeout = setTimeout(() => {
+    bottomCell.style.display = 'none';
+    bottomFill.style.width = '0%';
+    bottomLabel.textContent = '0%';
+  }, 160);
+}
+
+function cancelBottomIfRunning(){
+  stopBottomFill();
+}
+
+// ====== СЕССИЯ И ОТОБРАЖЕНИЕ ======
+async function startSession(selectedMode, savedState = null) {
+  mode = selectedMode;
+  startModal.style.display = 'none';
+  
+  qtext.textContent = 'Загрузка вопросов...';
+  optionsEl.innerHTML = '';
+  actionBtn.disabled = true;
+  finishBtn.style.display = 'inline-block';
+  
+  currentQuestions = await loadQuestionsFromFile();
+  
+  if (!currentQuestions || currentQuestions.length === 0) {
+    alert('Не удалось загрузить вопросы. Проверьте файл questions.txt');
+    showModeSelection();
+    return;
+  }
+  
+  testTitle.textContent = 'Тестирование знаний';
+  testSubtitle.textContent = `Режим: ${mode === 'single' ? 'Один раз' : 'Mastery'}`;
+  
+  if (savedState) {
+    order = savedState.order;
+    currentIndex = savedState.currentIndex;
+    score = savedState.score;
+    answered = savedState.answered;
+    userSelections = savedState.userSelections;
+    totalQuestionsInTest = savedState.totalQuestionsInTest;
+    questionsAnswered = savedState.questionsAnswered;
+  } else {
+    order = shuffled(Array.from({length: currentQuestions.length}, (_, i) => i));
+    currentIndex = 0;
+    score = 0;
+    answered = false;
+    userSelections = {};
+    totalQuestionsInTest = currentQuestions.length;
+    questionsAnswered = 0;
+  }
+  
+  renderCurrent();
+  saveState();
+}
+
+function renderCurrent(){
+  if (currentIndex >= order.length){ 
+    showResults(); 
+    return; 
+  }
+  
+  const qidx = order[currentIndex];
+  const q = currentQuestions[qidx];
+
+  answered = false;
+  feedbackEl.style.display = 'none';
+  explainEl.style.display = 'none';
+  optionsEl.innerHTML = '';
+  actionBtn.disabled = true;
+  
+  if (mode === 'single' && currentIndex === order.length - 1) {
+    actionBtn.textContent = 'Завершить тест';
+  } else {
+    actionBtn.textContent = 'Следующий';
+  }
+
+  const questionNumber = q.questionNumber || (currentIndex + 1);
+  psmall.textContent = `Вопрос ${questionNumber} из ${totalQuestionsInTest}`;
+  const pct = Math.round(((currentIndex + 1) / order.length) * 100);
+  progressBar.style.width = pct + '%';
+  ppct.textContent = pct + '%';
+
+  qtext.textContent = q ? q.question : 'Вопросов нет';
+  if (!q) { 
+    optionsEl.innerHTML = '<div style="color:var(--muted);padding:12px;border-radius:8px;background:rgba(255,255,255,0.02)">Вопрос не найден.</div>'; 
+    prevBtn.disabled = true; 
+    actionBtn.disabled = true; 
+    return; 
+  }
+
+  const multi = isMulti(q);
+  let pairs = q.options.map((t, i) => ({t, orig: i}));
+  shuffleInPlace(pairs);
+
+  pairs.forEach(pair => {
+    const label = document.createElement('label');
+    label.className = 'option';
+    const input = document.createElement('input');
+    input.type = multi ? 'checkbox' : 'radio';
+    input.name = 'opt' + qidx;
+    input.dataset.orig = String(pair.orig);
+    const span = document.createElement('span'); 
+    span.className = 'opt-text'; 
+    span.textContent = pair.t;
+    label.appendChild(input); 
+    label.appendChild(span);
+    optionsEl.appendChild(label);
+
+    if (!multi){
+      label.addEventListener('click', () => {
+        if (answered) return;
+        const chosen = Number(input.dataset.orig);
+        userSelections[qidx] = [chosen];
+        evaluateSingle(qidx, chosen);
+      });
+    }
+  });
+
+  if (multi){
+    actionBtn.textContent = 'Продолжить';
+    actionBtn.disabled = true;
+    optionsEl.querySelectorAll('input').forEach(inp => inp.addEventListener('change', () => {
+      actionBtn.disabled = optionsEl.querySelectorAll('input:checked').length === 0;
+    }));
+  } else {
+    actionBtn.disabled = true;
+  }
+
+  prevBtn.disabled = currentIndex === 0;
+
+  if (!(autoSkipEl && autoSkipEl.checked) && !bottomActive){
+    bottomCell.style.display = 'none';
+    bottomFill.style.width = '0%';
+    bottomLabel.textContent = '0%';
+  }
+  
+  saveState();
+}
+
+// ====== ПРОВЕРКА ОТВЕТОВ ======
+function evaluateSingle(qidx, chosenOrig){
+  const q = currentQuestions[qidx];
+  const correct = q.correctAnswers.includes(chosenOrig);
+
+  optionsEl.querySelectorAll('.option').forEach(label => {
+    label.style.pointerEvents = 'none';
+    const orig = Number(label.querySelector('input').dataset.orig);
+    label.classList.remove('correct','incorrect','selected');
+    if (q.correctAnswers.includes(orig)) label.classList.add('correct');
+    if (orig === chosenOrig && !correct) label.classList.add('incorrect');
+    if (orig === chosenOrig) label.classList.add('selected');
+  });
+
+  feedbackEl.textContent = correct ? '✓ Правильно' : '✗ Неправильно';
+  feedbackEl.className = 'feedback ' + (correct ? 'correct' : 'incorrect');
+  feedbackEl.style.display = 'block';
+  
+  if (q.explanation){ 
+    explainEl.textContent = q.explanation; 
+    explainEl.style.display = 'block'; 
+  }
+
+  if (correct) score++;
+  answered = true;
+  questionsAnswered++;
+  actionBtn.disabled = false;
+
+  if (autoSkipEl && autoSkipEl.checked){
+    startBottomFill(3000);
+  } else {
+    if (!bottomActive) stopBottomFill();
+  }
+  
+  saveState();
+}
+
+function evaluateMulti(qidx){
+  const q = currentQuestions[qidx];
+  const chosen = Array.from(optionsEl.querySelectorAll('input:checked')).map(i => Number(i.dataset.orig)).sort((a,b) => a-b);
+  userSelections[qidx] = chosen.slice();
+  const corr = q.correctAnswers.slice().sort((a,b) => a-b);
+  const full = JSON.stringify(chosen) === JSON.stringify(corr);
+
+  optionsEl.querySelectorAll('.option').forEach(label => {
+    label.style.pointerEvents = 'none';
+    const orig = Number(label.querySelector('input').dataset.orig);
+    label.classList.remove('correct','incorrect','selected');
+    if (corr.includes(orig)) label.classList.add('correct');
+    if (chosen.includes(orig) && !corr.includes(orig)) label.classList.add('incorrect');
+    if (chosen.includes(orig)) label.classList.add('selected');
+  });
+
+  feedbackEl.textContent = full ? '✓ Полностью правильно' : '✗ Неправильно';
+  feedbackEl.className = 'feedback ' + (full ? 'correct' : 'incorrect');
+  feedbackEl.style.display = 'block';
+  
+  if (q.explanation){ 
+    explainEl.textContent = q.explanation; 
+    explainEl.style.display = 'block'; 
+  }
+
+  if (full) score++;
+  answered = true;
+  questionsAnswered++;
+  actionBtn.disabled = false;
+
+  if (autoSkipEl && autoSkipEl.checked){
+    startBottomFill(4500);
+  } else {
+    if (!bottomActive) stopBottomFill();
+  }
+  
+  saveState();
+}
+
+// ====== ПЕРЕХОД К СЛЕДУЮЩЕМУ ======
+function proceedToNext(isAuto){
+  if (!isAuto){
+    if (bottomActive) cancelBottomIfRunning();
+  }
+
+  if (currentIndex >= order.length) return;
+  const qidx = order[currentIndex];
+  const q = currentQuestions[qidx];
+
+  if (isMulti(q) && !answered){
+    evaluateMulti(qidx);
+    return;
+  }
+  if (!isMulti(q) && !answered) return;
+
+  let wasCorrect = false;
+  if (isMulti(q)){
+    const chosen = (userSelections[qidx] || []).slice().sort((a,b) => a-b);
+    const corr = q.correctAnswers.slice().sort((a,b) => a-b);
+    wasCorrect = JSON.stringify(chosen) === JSON.stringify(corr);
+  } else {
+    wasCorrect = q.correctAnswers.includes((userSelections[qidx] || [])[0]);
+  }
+
+  if (mode === 'mastery' && !wasCorrect){
+    const gap = Math.floor(Math.random() * 3) + 5;
+    const insertPos = Math.min(currentIndex + gap, order.length);
+    order.splice(insertPos, 0, qidx);
+  }
+
+  currentIndex++;
+
+  if (currentIndex >= order.length){ 
+    showResults(); 
+    return; 
+  }
+  
+  renderCurrent();
+}
+
+// ====== РЕЗУЛЬТАТЫ ======
+function showResults(){
+  document.querySelector('.card').style.display = 'none';
+  resultsEl.style.display = 'block';
+  finalScore.textContent = `${score} / ${totalQuestionsInTest}`;
+  
+  const wrongAnswers = questionsAnswered - score;
+  const percentage = totalQuestionsInTest > 0 ? Math.round((score / totalQuestionsInTest) * 100) : 0;
+  
+  correctAnswersEl.textContent = score;
+  wrongAnswersEl.textContent = wrongAnswers;
+  percentageEl.textContent = percentage + '%';
+  totalAnsweredEl.textContent = questionsAnswered + ' из ' + totalQuestionsInTest;
+  
+  let message = '';
+  if (percentage >= 90) message = 'Отличный результат! 🎉';
+  else if (percentage >= 70) message = 'Хороший результат! 👍';
+  else if (percentage >= 50) message = 'Удовлетворительно. 📚';
+  else message = 'Нужно поработать. 💪';
+  
+  resultMessage.textContent = message;
+  
+  clearState();
+}
+
+function showConfirmFinishModal() {
+  confirmModal.style.display = 'flex';
+}
+
+function hideConfirmFinishModal() {
+  confirmModal.style.display = 'none';
+}
+
+function finishTest() {
+  hideConfirmFinishModal();
+  showModeSelection();
+}
+
+function showModeSelection(){
+  resultsEl.style.display = 'none';
+  document.querySelector('.card').style.display = 'block';
+  finishBtn.style.display = 'none';
+  
+  testTitle.textContent = 'Тестирование знаний';
+  testSubtitle.textContent = 'Выберите режим тестирования';
+  
+  startModal.style.display = 'flex';
+  
+  clearState();
+}
+
+// ====== ВОССТАНОВЛЕНИЕ СЕССИИ ПРИ ЗАГРУЗКЕ ======
+function checkSavedSession() {
+  const savedState = loadState();
+  if (savedState) {
+    const continueTest = confirm('Обнаружена незавершенная сессия тестирования. Хотите продолжить?');
+    if (continueTest) {
+      startSession(savedState.mode, savedState);
+      return true;
+    } else {
+      clearState();
+    }
+  }
+  return false;
+}
+
+// ====== ОБРАБОТЧИКИ СОБЫТИЙ ======
+actionBtn.addEventListener('click', () => {
+  if (currentIndex === order.length - 1 && mode === 'single') {
+    finishTest();
+  } else {
+    proceedToNext(false);
+  }
+});
+
+prevBtn.addEventListener('click', () => { 
+  if (bottomActive) cancelBottomIfRunning(); 
+  if (currentIndex > 0){ 
+    currentIndex--; 
+    renderCurrent(); 
+  } 
+});
+
+finishBtn.addEventListener('click', showConfirmFinishModal);
+
+confirmCancelBtn.addEventListener('click', hideConfirmFinishModal);
+confirmFinishBtn.addEventListener('click', finishTest);
+
+autoSkipEl.addEventListener('change', () => {
+  if (!autoSkipEl.checked && bottomActive){
+    stopBottomFill();
+  }
+});
+
+singleBtn.addEventListener('click', () => startSession('single'));
+masteryBtn.addEventListener('click', () => startSession('mastery'));
+
+restartBtn.addEventListener('click', showModeSelection);
+
+themeBtn.addEventListener('click', () => document.documentElement.classList.toggle('light'));
+
+document.addEventListener('keydown', (e) => { 
+  if (e.key === 'Enter') proceedToNext(false); 
+});
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'F5' || (e.ctrlKey && e.key === 'r')) {
+    e.preventDefault();
+  }
+});
+
+window.addEventListener('beforeunload', function (e) {
+  if (currentQuestions.length > 0) {
+    e.preventDefault();
+    e.returnValue = 'Вы проходите тест. Все несохраненные данные будут потеряны. Вы уверены, что хотите покинуть страницу?';
+  }
+});
+
+// ====== ИНИЦИАЛИЗАЦИЯ ======
+function init() {
+  const hasSavedSession = checkSavedSession();
+  
+  if (!hasSavedSession && startModal) {
+    startModal.style.display = 'flex';
+  }
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
