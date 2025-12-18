@@ -312,78 +312,64 @@ async function loadQuestionsFromFile() {
 function parseQuestions(text) {
   if (!text) return [];
 
-  // убираем BOM и нормализуем переносы
+  // remove BOM and normalize line endings
   const withoutBOM = text.replace(/^\uFEFF/, '');
   const normalized = withoutBOM.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 
-  // разбиваем на блоки: блок начинается с "число." и продолжается до следующего "число." или до конца
-  const blockRegex = /(^\s*\d+\.\s[\s\S]*?)(?=(?:^\s*\d+\.)|\s*$)/gim;
-  const blocks = [];
-  let m;
-  while ((m = blockRegex.exec(normalized)) !== null) {
-    blocks.push(m[1].trim());
-  }
+  // split into blocks that begin with a number and a dot (e.g. "117.")
+  const rawBlocks = normalized.split(/(?=^\s*\d+\.)/m).map(b => b.trim()).filter(b => b.length > 0);
 
-  // шаблоны для опций
-  const firstOptionLocator = /(^|\n)\s*\[\s*[xXхХ]?\s*\]/m;
   const optionLinePattern = /^\s*\[\s*([xXхХ]?)\s*\]\s*(.*)$/;
-
   const questions = [];
 
-  for (let bi = 0; bi < blocks.length; bi++) {
-    const block = blocks[bi];
+  for (let bi = 0; bi < rawBlocks.length; bi++) {
+    const block = rawBlocks[bi];
 
-    // ищем позицию первой опции
-    const optLoc = firstOptionLocator.exec(block);
-    if (!optLoc) continue; // нет опций — пропускаем
+    const numMatch = block.match(/^\s*(\d+)\./);
+    if (!numMatch) continue; // skip blocks that don't start with a number
+    const qnum = parseInt(numMatch[1], 10);
 
-    const optPos = optLoc.index + (optLoc[1] ? optLoc[1].length : 0);
+    // remove the leading number and split into lines
+    const afterNum = block.replace(/^\s*\d+\.\s*/, '');
+    const lines = afterNum.split('\n').map(l => l.replace(/\u00A0/g, ' ').replace(/\t/g, ' ').trim());
 
-    // вопрос — всё до первой опции; если пусто — берём первую строку (без префикса номера)
-    let rawQuestion = block.substring(0, optPos).replace(/^\s*\d+\.\s*/, '').trim();
-    if (!rawQuestion) {
-      const firstLine = block.split('\n')[0] || '';
-      rawQuestion = firstLine.replace(/^\s*\d+\.\s*/, '').trim();
-    }
+    // find first line that looks like an option
+    const firstOptIndex = lines.findIndex(l => optionLinePattern.test(l));
+    if (firstOptIndex === -1) continue; // no options found -> skip
 
-    // хвост блока — потенциальные опции и шум
-    const tail = block.substring(optPos).trim();
-    const rawLines = tail.split('\n').map(l => l.replace(/\u00A0/g, ' ').trim()).filter(l => l.length > 0);
+    // question text is everything before the first option
+    const qLines = lines.slice(0, firstOptIndex).filter(l => l.length > 0);
+    const questionText = qLines.join(' ').trim() || `Вопрос ${questions.length + 1}`;
 
     const options = [];
     const correctAnswers = [];
 
-    for (let i = 0; i < rawLines.length; i++) {
-      const line = rawLines[i];
+    // parse options, allow option text to continue on following non-option lines
+    for (let i = firstOptIndex; i < lines.length; i++) {
+      const line = lines[i];
       const om = line.match(optionLinePattern);
-      if (om) {
-        // Собираем возможные продолжения варианта (следующие строки, пока они не похожи на новую опцию)
-        let text = om[2].trim();
-        while (i + 1 < rawLines.length && !rawLines[i + 1].match(optionLinePattern)) {
-          // считаем следующую строку продолжением текущего варианта
-          text += ' ' + rawLines[i + 1].trim();
-          i++;
-        }
-        options.push(text.trim());
-        if (/[xXхХ]/.test(om[1])) {
-          correctAnswers.push(options.length - 1);
-        }
-      } else {
-        // строка не распознана как отдельная опция
-        // если есть предыдущий добавляем как продолжение (на всякий случай)
-        if (options.length > 0) {
-          options[options.length - 1] = (options[options.length - 1] + ' ' + line).trim();
-        }
+      if (!om) continue; // skip stray lines
+
+      let optText = om[2].trim();
+      // collect continuation lines
+      let j = i + 1;
+      while (j < lines.length && !optionLinePattern.test(lines[j])) {
+        if (lines[j].length > 0) optText += ' ' + lines[j];
+        j++;
+      }
+      // advance i to last continuation line
+      i = j - 1;
+
+      options.push(optText.trim());
+      if (/[xXхХ]/.test(om[1])) {
+        correctAnswers.push(options.length - 1);
       }
     }
 
     if (options.length === 0) continue;
 
-    const numMatch = block.match(/^\s*(\d+)\./);
-    const qnum = numMatch ? parseInt(numMatch[1], 10) : (questions.length + 1);
-
     questions.push({
-      question: rawQuestion || `Вопрос ${questions.length + 1}`,
+      question: questionText,
       questionNumber: qnum,
       options,
       correctAnswers,
