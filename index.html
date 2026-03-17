@@ -312,12 +312,89 @@ async function loadQuestionsFromFile() {
 function parseQuestions(text) {
   if (!text) return [];
 
-  // remove BOM and normalize line endings
   const withoutBOM = text.replace(/^\uFEFF/, '');
   const normalized = withoutBOM.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 
-  // split into blocks that begin with a number and a dot (e.g. "117.")
-  const rawBlocks = normalized.split(/(?=^\s*\d+\.)/m).map(b => b.trim()).filter(b => b.length > 0);
+  const taggedQuestions = parseTaggedQuestions(normalized);
+  if (taggedQuestions.length > 0) return taggedQuestions;
+
+  return parseLegacyBracketQuestions(normalized);
+}
+
+function parseTaggedQuestions(normalizedText) {
+  const lines = normalizedText
+    .split('\n')
+    .map(l => l.replace(/\u00A0/g, ' ').replace(/\t/g, ' ').trim());
+
+  const questionTagPattern = /^<\s*question\d*\s*>\s*(.*)$/i;
+  const variantTagPattern = /^<\s*variant\s*>\s*(.*)$/i;
+
+  const questions = [];
+  let current = null;
+
+  function normalizeOptionText(rawText) {
+    return rawText.replace(/\s*\+\s*$/, '').trim();
+  }
+
+  function flushCurrentQuestion() {
+    if (!current) return;
+
+    current.question = current.question.trim();
+    current.options = current.options
+      .map(opt => normalizeOptionText(opt))
+      .filter(opt => opt.length > 0);
+
+    if (current.question.length > 0 && current.options.length > 0) {
+      current.correctAnswers = [0];
+      questions.push(current);
+    }
+
+    current = null;
+  }
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line) continue;
+
+    const qm = line.match(questionTagPattern);
+    if (qm) {
+      flushCurrentQuestion();
+      current = {
+        question: (qm[1] || '').trim(),
+        questionNumber: questions.length + 1,
+        options: [],
+        correctAnswers: [],
+        explanation: ''
+      };
+      continue;
+    }
+
+    const vm = line.match(variantTagPattern);
+    if (vm) {
+      if (!current) continue;
+      current.options.push((vm[1] || '').trim());
+      continue;
+    }
+
+    if (!current) continue;
+
+    if (current.options.length === 0) {
+      current.question = current.question ? `${current.question} ${line}` : line;
+    } else {
+      const lastIdx = current.options.length - 1;
+      current.options[lastIdx] = `${current.options[lastIdx]} ${line}`.trim();
+    }
+  }
+
+  flushCurrentQuestion();
+  return questions;
+}
+
+function parseLegacyBracketQuestions(normalizedText) {
+  const rawBlocks = normalizedText
+    .split(/(?=^\s*\d+\.)/m)
+    .map(b => b.trim())
+    .filter(b => b.length > 0);
 
   const optionLinePattern = /^\s*\[\s*([xXхХ]?)\s*\]\s*(.*)$/;
   const questions = [];
@@ -326,38 +403,32 @@ function parseQuestions(text) {
     const block = rawBlocks[bi];
 
     const numMatch = block.match(/^\s*(\d+)\./);
-    if (!numMatch) continue; // skip blocks that don't start with a number
+    if (!numMatch) continue;
     const qnum = parseInt(numMatch[1], 10);
 
-    // remove the leading number and split into lines
     const afterNum = block.replace(/^\s*\d+\.\s*/, '');
     const lines = afterNum.split('\n').map(l => l.replace(/\u00A0/g, ' ').replace(/\t/g, ' ').trim());
 
-    // find first line that looks like an option
     const firstOptIndex = lines.findIndex(l => optionLinePattern.test(l));
-    if (firstOptIndex === -1) continue; // no options found -> skip
+    if (firstOptIndex === -1) continue;
 
-    // question text is everything before the first option
     const qLines = lines.slice(0, firstOptIndex).filter(l => l.length > 0);
     const questionText = qLines.join(' ').trim() || `Вопрос ${questions.length + 1}`;
 
     const options = [];
     const correctAnswers = [];
 
-    // parse options, allow option text to continue on following non-option lines
     for (let i = firstOptIndex; i < lines.length; i++) {
       const line = lines[i];
       const om = line.match(optionLinePattern);
-      if (!om) continue; // skip stray lines
+      if (!om) continue;
 
       let optText = om[2].trim();
-      // collect continuation lines
       let j = i + 1;
       while (j < lines.length && !optionLinePattern.test(lines[j])) {
         if (lines[j].length > 0) optText += ' ' + lines[j];
         j++;
       }
-      // advance i to last continuation line
       i = j - 1;
 
       options.push(optText.trim());
